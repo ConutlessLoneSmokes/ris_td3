@@ -1,0 +1,19 @@
+{
+  "run_dir": "D:\\PyTest\\ris_td3\\outputs\\experiments\\td3_ris_20260326_113854",
+  "resolved_device": "cuda",
+  "train_episodes": 10000,
+  "warmup_episodes": 0,
+  "best_eval_reward": 17.846094719459696,
+  "last_eval_episode": 10000,
+  "last_eval_metrics": {
+    "avg_reward": 17.614646925282926,
+    "avg_mean_sinr": 2.2554916291453975e-05,
+    "avg_sum_cbl": 99.9999999332428,
+    "avg_power": 0.000999999990893015
+  },
+  "train_metrics_csv": "D:\\PyTest\\ris_td3\\outputs\\experiments\\td3_ris_20260326_113854\\train_metrics.csv",
+  "eval_metrics_csv": "D:\\PyTest\\ris_td3\\outputs\\experiments\\td3_ris_20260326_113854\\eval_metrics.csv",
+  "tensorboard_dir": "D:\\PyTest\\ris_td3\\outputs\\experiments\\td3_ris_20260326_113854\\tb",
+  "latest_checkpoint": "D:\\PyTest\\ris_td3\\outputs\\experiments\\td3_ris_20260326_113854\\checkpoints\\latest.pt",
+  "best_checkpoint": "D:\\PyTest\\ris_td3\\outputs\\experiments\\td3_ris_20260326_113854\\checkpoints\\best.pt"
+}

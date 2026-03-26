@@ -1,0 +1,19 @@
+{
+  "run_dir": "D:\\PyTest\\ris_td3\\outputs\\experiments\\paper_aligned_smoke",
+  "resolved_device": "cuda",
+  "train_episodes": 20,
+  "warmup_episodes": 0,
+  "best_eval_reward": 16.66743991208199,
+  "last_eval_episode": 20,
+  "last_eval_metrics": {
+    "avg_reward": 16.66743991208199,
+    "avg_mean_sinr": 8.928682365986313e-05,
+    "avg_sum_cbl": 100.00000114440918,
+    "avg_power": 0.0009999999939867704
+  },
+  "train_metrics_csv": "D:\\PyTest\\ris_td3\\outputs\\experiments\\paper_aligned_smoke\\train_metrics.csv",
+  "eval_metrics_csv": "D:\\PyTest\\ris_td3\\outputs\\experiments\\paper_aligned_smoke\\eval_metrics.csv",
+  "tensorboard_dir": "D:\\PyTest\\ris_td3\\outputs\\experiments\\paper_aligned_smoke\\tb",
+  "latest_checkpoint": "D:\\PyTest\\ris_td3\\outputs\\experiments\\paper_aligned_smoke\\checkpoints\\latest.pt",
+  "best_checkpoint": "D:\\PyTest\\ris_td3\\outputs\\experiments\\paper_aligned_smoke\\checkpoints\\best.pt"
+}

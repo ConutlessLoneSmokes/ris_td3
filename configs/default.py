@@ -1,6 +1,6 @@
 # configs/default.py
 from dataclasses import dataclass, field
-from typing import List
+from typing import List, Tuple
 import math
 
 
@@ -59,6 +59,30 @@ class SystemConfig:
     # environment
     seed: int = 42
     eps_div: float = 1e-12
+    actor_hidden_dims: Tuple[int, int, int] = (800, 400, 200)
+    critic_state_hidden_dim: int = 800
+    critic_action_hidden_dim: int = 800
+    critic_hidden_dims: Tuple[int, int] = (600, 400)
+    use_layer_norm: bool = True
+    actor_lr: float = 1e-4
+    critic_lr: float = 1e-4
+    gamma: float = 0.99
+    tau: float = 0.005
+    policy_noise: float = math.sqrt(0.1)
+    noise_clip: float = 0.5
+    exploration_noise: float = math.sqrt(0.1)
+    policy_delay: int = 4
+    buffer_size: int = 10000
+    batch_size: int = 64
+    warmup_episodes: int = 0
+    train_episodes: int = 10000
+    eval_interval: int = 500
+    save_interval: int = 1000
+    eval_episodes: int = 100
+    device: str = "cuda"
+    outputs_root: str = "outputs/experiments"
+    log_dir: str = "outputs/experiments/default/tb"
+    ckpt_dir: str = "outputs/experiments/default/checkpoints"
 
     @property
     def M(self) -> int:

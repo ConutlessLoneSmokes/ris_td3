@@ -1,0 +1,96 @@
+{
+  "K": 4,
+  "Mx": 2,
+  "My": 2,
+  "Nx": 4,
+  "Ny": 4,
+  "bandwidth_hz": 100000.0,
+  "noise_density_dbm_hz": -174.0,
+  "noise_figure_db": 3.0,
+  "p_total_watt": 0.001,
+  "wavelength": 0.1,
+  "element_spacing": 0.05,
+  "total_cbl": 100.0,
+  "min_cbl": 10.0,
+  "target_error_prob": 1e-08,
+  "zeta_br": 10.0,
+  "zeta_ru": 10.0,
+  "pl0_db": -30.0,
+  "pathloss_exp": 2.2,
+  "bs_pos": [
+    0.0,
+    0.0
+  ],
+  "ris_pos": [
+    40.0,
+    0.0
+  ],
+  "user_pos": [
+    [
+      16.0,
+      40.0
+    ],
+    [
+      32.0,
+      40.0
+    ],
+    [
+      48.0,
+      40.0
+    ],
+    [
+      64.0,
+      40.0
+    ]
+  ],
+  "bs_height": 12.5,
+  "ris_height": 12.5,
+  "user_height": 1.5,
+  "beta_min": 0.4,
+  "alpha_ris": 1.9,
+  "phi_ris": 1.350884841043611,
+  "seed": 42,
+  "eps_div": 1e-12,
+  "actor_hidden_dims": [
+    800,
+    400,
+    200
+  ],
+  "critic_state_hidden_dim": 800,
+  "critic_action_hidden_dim": 800,
+  "critic_hidden_dims": [
+    600,
+    400
+  ],
+  "use_layer_norm": true,
+  "actor_lr": 0.0001,
+  "critic_lr": 0.0001,
+  "gamma": 0.99,
+  "tau": 0.005,
+  "policy_noise": 0.31622776601683794,
+  "noise_clip": 0.5,
+  "exploration_noise": 0.31622776601683794,
+  "policy_delay": 4,
+  "buffer_size": 64,
+  "batch_size": 4,
+  "warmup_episodes": 0,
+  "train_episodes": 20,
+  "eval_interval": 10,
+  "save_interval": 10,
+  "eval_episodes": 5,
+  "device": "cuda",
+  "outputs_root": "outputs/experiments",
+  "log_dir": "outputs\\experiments\\paper_aligned_smoke\\tb",
+  "ckpt_dir": "outputs\\experiments\\paper_aligned_smoke\\checkpoints",
+  "paper_alignment_notes": {
+    "actor_hidden_dims": "论文给出 [800, 400, 200]",
+    "critic_architecture": "状态分支 800、动作分支 800，融合后 [600, 400]，并使用 LayerNorm",
+    "learning_rate": "论文给出 actor/critic 均为 1e-4",
+    "buffer_batch": "论文给出 replay buffer=10000, batch=64",
+    "noise_variance": "论文给出探索噪声和 target noise 的方差均为 0.1，因此代码中使用标准差 sqrt(0.1)",
+    "assumptions": {
+      "gamma": "论文未报告具体数值，这里保留 0.99；当前 single-shot 环境下 done=True，训练中不会实际使用未来回报",
+      "noise_clip": "论文给出存在截断常数 c，但未报告具体数值，这里保留 TD3 常用值 0.5"
+    }
+  }
+}
