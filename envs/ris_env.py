@@ -26,7 +26,7 @@ class RISEnv:
         self.last_w = np.ones((self.cfg.K, self.cfg.M), dtype=np.complex128) * \
                       np.sqrt(self.cfg.p_total_watt / (self.cfg.K * self.cfg.M))
         self.last_reward = 0.0
-        
+        self.current_step = 0
         return self._get_state()
         
     def _get_state(self):
@@ -92,9 +92,11 @@ class RISEnv:
         self.last_reward = reward
         
         next_state = self._get_state()
+        self.current_step += 1
 
         # 论文设定场景为单次传输(Single-shot transmission)，在此处将done设定为True标识回合结束
-        done = True
+        done = bool(self.current_step >= getattr(self.cfg, 'max_steps', 100)) 
+        
         info = {
             "sinr": sinr.astype(np.float64, copy=True),
             "cbl": cbl.astype(np.float64, copy=True),

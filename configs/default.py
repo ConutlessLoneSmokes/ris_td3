@@ -83,7 +83,9 @@ class SystemConfig:
     outputs_root: str = "outputs/experiments"
     log_dir: str = "outputs/experiments/default/tb"
     ckpt_dir: str = "outputs/experiments/default/checkpoints"
-
+    max_steps: int = 100
+    exploration_noise: float = 0.3162 # sqrt(0.1)
+    
     @property
     def M(self) -> int:
         return self.Mx * self.My

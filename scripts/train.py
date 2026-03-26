@@ -175,39 +175,66 @@ def main() -> None:
     try:
         for episode in range(1, cfg.train_episodes + 1):
             state = env.reset()
+            episode_reward = 0.0
+            
+            last_info = {
+                "sinr": np.zeros(cfg.K),
+                "cbl": np.zeros(cfg.K),
+                "theta": np.zeros(cfg.N),
+                "power": 0.0
+            }
+            last_losses = None
+            
+            for t in range(cfg.max_steps):
+                if agent.total_it <= cfg.warmup_episodes:
+                    action = rng.uniform(-1.0, 1.0, size=env.action_dim).astype(np.float32)
+                else:
+                    action = agent.select_action(state)
+                    noise = rng.normal(0.0, cfg.exploration_noise, size=env.action_dim).astype(np.float32)
+                    action = np.clip(action + noise, -1.0, 1.0)
 
-            if episode <= cfg.warmup_episodes:
-                action = rng.uniform(-1.0, 1.0, size=env.action_dim).astype(np.float32)
-            else:
-                action = agent.select_action(state)
-                noise = rng.normal(0.0, cfg.exploration_noise, size=env.action_dim).astype(np.float32)
-                action = np.clip(action + noise, -1.0, 1.0)
+                next_state, reward, done, info = env.step(action)
+                replay_buffer.add(state, action, reward, next_state, done)
 
-            next_state, reward, done, info = env.step(action)
-            replay_buffer.add(state, action, reward, next_state, done)
+                state = next_state
+                episode_reward += reward
+                last_info = info
 
-            losses = agent.train_step(replay_buffer)
-            mean_sinr = float(np.mean(info["sinr"]))
-            sum_cbl = float(np.sum(info["cbl"]))
+                losses = agent.train_step(replay_buffer)
+                if losses is not None:
+                    last_losses = losses
+                
+                if done:
+                    break
 
-            writer.add_scalar("train/episode_reward", float(reward), episode)
+            mean_sinr = float(np.mean(last_info["sinr"]))
+            sum_cbl = float(np.sum(last_info["cbl"]))
+            total_power = float(last_info["power"])
+
+            writer.add_scalar("train/episode_reward", episode_reward, episode)
             writer.add_scalar("train/mean_sinr", mean_sinr, episode)
             writer.add_scalar("train/sum_cbl", sum_cbl, episode)
-            writer.add_scalar("train/total_power", float(info["power"]), episode)
+            writer.add_scalar("train/total_power", total_power, episode)
 
-            if losses is not None:
-                writer.add_scalar("train/critic_loss", losses["critic_loss"], episode)
-                if losses["actor_updated"] > 0.5:
-                    writer.add_scalar("train/actor_loss", losses["actor_loss"], episode)
+            critic_loss_val = ""
+            actor_loss_val = ""
+
+            if last_losses is not None:
+                critic_loss_val = last_losses["critic_loss"]
+                writer.add_scalar("train/critic_loss", critic_loss_val, episode)
+                if last_losses["actor_updated"] > 0.5:
+                    actor_loss_val = last_losses["actor_loss"]
+                    writer.add_scalar("train/actor_loss", actor_loss_val, episode)
+
             train_writer.writerow(
                 {
                     "episode": episode,
-                    "reward": float(reward),
+                    "reward": episode_reward,
                     "mean_sinr": mean_sinr,
                     "sum_cbl": sum_cbl,
-                    "total_power": float(info["power"]),
-                    "critic_loss": "" if losses is None else losses["critic_loss"],
-                    "actor_loss": "" if losses is None else losses["actor_loss"],
+                    "total_power": total_power,
+                    "critic_loss": critic_loss_val,
+                    "actor_loss": actor_loss_val,
                     "buffer_size": len(replay_buffer),
                 }
             )
@@ -237,12 +264,12 @@ def main() -> None:
                 agent.save(paths["ckpt_dir"] / "latest.pt")
 
             if episode == 1 or episode % 100 == 0:
-                critic_loss = float("nan") if losses is None else losses["critic_loss"]
-                actor_loss = float("nan") if losses is None else losses["actor_loss"]
+                c_loss = float("nan") if critic_loss_val == "" else critic_loss_val
+                a_loss = float("nan") if actor_loss_val == "" else actor_loss_val
                 print(
-                    f"[Train] episode={episode} reward={reward:.4f} "
-                    f"mean_sinr={mean_sinr:.4f} critic_loss={critic_loss:.4f} "
-                    f"actor_loss={actor_loss:.4f} buffer={len(replay_buffer)}"
+                    f"[Train] episode={episode} reward={episode_reward:.4f} "
+                    f"mean_sinr={mean_sinr:.4f} critic_loss={c_loss:.4f} "
+                    f"actor_loss={a_loss:.4f} buffer={len(replay_buffer)}"
                 )
 
         if last_eval_episode != cfg.train_episodes:
@@ -278,7 +305,6 @@ def main() -> None:
         train_csv_file.close()
         eval_csv_file.close()
         writer.close()
-
 
 if __name__ == "__main__":
     main()
