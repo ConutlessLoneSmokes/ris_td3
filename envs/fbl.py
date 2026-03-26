@@ -27,7 +27,7 @@ def cascaded_channel(h_ru_k: np.ndarray, h_br: np.ndarray) -> np.ndarray:
 def effective_scalar(h_ru_k: np.ndarray, h_br: np.ndarray, theta: np.ndarray, w_k: np.ndarray, cfg: SystemConfig) -> complex:
     theta_vec = ris_coefficients(theta, cfg)
     h_tilde = cascaded_channel(h_ru_k, h_br)
-    return np.conjugate(theta_vec) @ h_tilde @ w_k
+    return complex(np.conjugate(theta_vec) @ h_tilde @ w_k)
 
 
 def sinr_all(h_br: np.ndarray, h_ru: np.ndarray, theta: np.ndarray, w: np.ndarray, cfg: SystemConfig) -> np.ndarray:
