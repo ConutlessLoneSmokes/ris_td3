@@ -7,6 +7,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
+    # 允许直接从项目根目录调用脚本。
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import numpy as np
@@ -22,6 +23,7 @@ from envs.ris_env import RISEnv
 
 
 def main() -> None:
+    """执行环境、网络、缓存与 checkpoint 的最小闭环冒烟测试。"""
     with tempfile.TemporaryDirectory() as tmpdir:
         cfg = replace(
             SystemConfig(),
@@ -53,6 +55,7 @@ def main() -> None:
         reward = reward_total_fbl(sinr, cbl, cfg.target_error_prob)
         coeff = ris_coefficients(theta, cfg)
 
+        # 基础数学与形状检查。
         assert h_br.shape == (cfg.N, cfg.M)
         assert h_ru.shape == (cfg.K, cfg.N)
         assert theta.shape == (cfg.N,)

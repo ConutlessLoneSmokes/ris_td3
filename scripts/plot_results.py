@@ -7,6 +7,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
+    # 允许直接从项目根目录调用脚本。
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import matplotlib.pyplot as plt
@@ -17,7 +18,7 @@ from configs.default import SystemConfig
 
 
 def configure_fonts() -> None:
-    """配置英文 Times New Roman、中文微软雅黑的字体回退链。"""
+    """配置英文 Times New Roman 与中文微软雅黑字体。"""
     candidate_font_files = [
         Path("C:/Windows/Fonts/times.ttf"),
         Path("C:/Windows/Fonts/msyh.ttc"),
@@ -32,6 +33,7 @@ def configure_fonts() -> None:
 
 
 def resolve_run_dir(run_dir_arg: str | None, outputs_root: str) -> Path:
+    """解析用户指定的实验目录，或自动读取最新实验目录。"""
     if run_dir_arg is not None:
         return Path(run_dir_arg)
 
@@ -42,6 +44,7 @@ def resolve_run_dir(run_dir_arg: str | None, outputs_root: str) -> Path:
 
 
 def load_csv_rows(path: Path) -> list[dict[str, float]]:
+    """读取 CSV 文件并将可用字段转换为浮点数。"""
     if not path.exists():
         return []
 
@@ -59,6 +62,7 @@ def load_csv_rows(path: Path) -> list[dict[str, float]]:
 
 
 def moving_average(values: np.ndarray, window: int) -> np.ndarray:
+    """计算滑动平均，用于平滑训练曲线。"""
     if len(values) == 0:
         return values
     window = max(1, min(window, len(values)))
@@ -67,6 +71,7 @@ def moving_average(values: np.ndarray, window: int) -> np.ndarray:
 
 
 def main() -> None:
+    """读取训练日志并绘制学习曲线。"""
     parser = argparse.ArgumentParser(description="绘制训练与评估曲线")
     parser.add_argument("--run-dir", type=str, default=None, help="实验目录，默认读取最新实验目录")
     parser.add_argument("--window", type=int, default=100, help="训练曲线滑动平均窗口")

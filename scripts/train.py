@@ -10,6 +10,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
+    # 允许从仓库根目录直接执行 `python scripts/train.py`。
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import numpy as np
@@ -22,6 +23,7 @@ from envs.ris_env import RISEnv
 
 
 def parse_args() -> argparse.Namespace:
+    """解析训练脚本命令行参数。"""
     parser = argparse.ArgumentParser(description="RIS-TD3 训练脚本")
     parser.add_argument("--run-name", type=str, default=None, help="实验运行名称，默认自动生成")
     parser.add_argument("--train-episodes", type=int, default=None, help="覆盖默认训练回合数")
@@ -35,6 +37,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def build_config(args: argparse.Namespace) -> SystemConfig:
+    """根据命令行覆盖项生成实际训练配置。"""
     cfg = SystemConfig()
     overrides = {
         "train_episodes": args.train_episodes,
@@ -52,6 +55,7 @@ def build_config(args: argparse.Namespace) -> SystemConfig:
 
 
 def build_run_paths(cfg: SystemConfig, run_name: str | None) -> dict[str, Path]:
+    """为本次实验构造输出目录，并维护 latest_run.txt。"""
     outputs_root = Path(cfg.outputs_root)
     outputs_root.mkdir(parents=True, exist_ok=True)
 
@@ -81,10 +85,12 @@ def build_run_paths(cfg: SystemConfig, run_name: str | None) -> dict[str, Path]:
 
 
 def write_json(path: Path, payload: dict) -> None:
+    """以 UTF-8 编码保存 JSON 文件。"""
     path.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def run_evaluation(agent: TD3Agent, cfg: SystemConfig, num_episodes: int) -> dict[str, float]:
+    """在独立环境上执行确定性评估，并汇总指标。"""
     env = RISEnv(cfg)
 
     rewards = []
@@ -94,13 +100,24 @@ def run_evaluation(agent: TD3Agent, cfg: SystemConfig, num_episodes: int) -> dic
 
     for _ in range(num_episodes):
         state = env.reset()
-        action = agent.select_action(state, deterministic=True)
-        _, reward, _, info = env.step(action)
-
-        rewards.append(float(reward))
-        mean_sinrs.append(float(np.mean(info["sinr"])))
-        sum_cbls.append(float(np.sum(info["cbl"])))
-        total_powers.append(float(info["power"]))
+        episode_reward = 0.0
+        last_info = None
+        
+        # 补充评估时的步数循环
+        for t in range(getattr(cfg, 'max_steps', 100)):
+            action = agent.select_action(state, deterministic=True)
+            state, reward, done, info = env.step(action)
+            
+            episode_reward += float(reward)
+            last_info = info
+            
+            if done:
+                break
+                
+        rewards.append(episode_reward)
+        mean_sinrs.append(float(np.mean(last_info["sinr"])))
+        sum_cbls.append(float(np.sum(last_info["cbl"])))
+        total_powers.append(float(last_info["power"]))
 
     return {
         "avg_reward": float(np.mean(rewards)),
@@ -111,6 +128,7 @@ def run_evaluation(agent: TD3Agent, cfg: SystemConfig, num_episodes: int) -> dic
 
 
 def evaluate_policy(agent: TD3Agent, cfg: SystemConfig, num_episodes: int) -> dict[str, float]:
+    """保留统一命名，便于训练主循环调用评估逻辑。"""
     return run_evaluation(agent, cfg, num_episodes)
 
 
@@ -183,9 +201,11 @@ def main() -> None:
                 "theta": np.zeros(cfg.N),
                 "power": 0.0
             }
-            last_losses = None
             
-            for t in range(cfg.max_steps):
+            running_critic_loss = float("nan")
+            running_actor_loss = float("nan")
+            
+            for t in range(getattr(cfg, 'max_steps', 100)):
                 if agent.total_it <= cfg.warmup_episodes:
                     action = rng.uniform(-1.0, 1.0, size=env.action_dim).astype(np.float32)
                 else:
@@ -193,18 +213,22 @@ def main() -> None:
                     noise = rng.normal(0.0, cfg.exploration_noise, size=env.action_dim).astype(np.float32)
                     action = np.clip(action + noise, -1.0, 1.0)
 
-                next_state, reward, done, info = env.step(action)
-                replay_buffer.add(state, action, reward, next_state, done)
+                next_state, reward, env_done, info = env.step(action)
+                
+                replay_buffer.add(state, action, reward, next_state, False)
 
                 state = next_state
                 episode_reward += reward
                 last_info = info
 
                 losses = agent.train_step(replay_buffer)
-                if losses is not None:
-                    last_losses = losses
                 
-                if done:
+                if losses is not None:
+                    running_critic_loss = losses["critic_loss"]
+                    if losses["actor_updated"] > 0.5:
+                        running_actor_loss = losses["actor_loss"]
+                
+                if env_done:
                     break
 
             mean_sinr = float(np.mean(last_info["sinr"]))
@@ -215,16 +239,11 @@ def main() -> None:
             writer.add_scalar("train/mean_sinr", mean_sinr, episode)
             writer.add_scalar("train/sum_cbl", sum_cbl, episode)
             writer.add_scalar("train/total_power", total_power, episode)
-
-            critic_loss_val = ""
-            actor_loss_val = ""
-
-            if last_losses is not None:
-                critic_loss_val = last_losses["critic_loss"]
-                writer.add_scalar("train/critic_loss", critic_loss_val, episode)
-                if last_losses["actor_updated"] > 0.5:
-                    actor_loss_val = last_losses["actor_loss"]
-                    writer.add_scalar("train/actor_loss", actor_loss_val, episode)
+            
+            if not np.isnan(running_critic_loss):
+                writer.add_scalar("train/critic_loss", running_critic_loss, episode)
+            if not np.isnan(running_actor_loss):
+                writer.add_scalar("train/actor_loss", running_actor_loss, episode)
 
             train_writer.writerow(
                 {
@@ -233,8 +252,8 @@ def main() -> None:
                     "mean_sinr": mean_sinr,
                     "sum_cbl": sum_cbl,
                     "total_power": total_power,
-                    "critic_loss": critic_loss_val,
-                    "actor_loss": actor_loss_val,
+                    "critic_loss": "" if np.isnan(running_critic_loss) else running_critic_loss,
+                    "actor_loss": "" if np.isnan(running_actor_loss) else running_actor_loss,
                     "buffer_size": len(replay_buffer),
                 }
             )
@@ -264,12 +283,10 @@ def main() -> None:
                 agent.save(paths["ckpt_dir"] / "latest.pt")
 
             if episode == 1 or episode % 100 == 0:
-                c_loss = float("nan") if critic_loss_val == "" else critic_loss_val
-                a_loss = float("nan") if actor_loss_val == "" else actor_loss_val
                 print(
                     f"[Train] episode={episode} reward={episode_reward:.4f} "
-                    f"mean_sinr={mean_sinr:.4f} critic_loss={c_loss:.4f} "
-                    f"actor_loss={a_loss:.4f} buffer={len(replay_buffer)}"
+                    f"mean_sinr={mean_sinr:.6f} critic_loss={running_critic_loss:.4f} "
+                    f"actor_loss={running_actor_loss:.4f} buffer={len(replay_buffer)}"
                 )
 
         if last_eval_episode != cfg.train_episodes:

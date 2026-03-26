@@ -12,9 +12,10 @@ from configs.default import SystemConfig
 
 
 class TD3Agent:
-    """适配当前 RIS 单步环境的 TD3 智能体。"""
+    """适配当前 RIS 环境的 TD3 智能体实现。"""
 
     def __init__(self, state_dim: int, action_dim: int, cfg: SystemConfig):
+        """构造主网络、目标网络和优化器。"""
         self.cfg = cfg
         self.state_dim = state_dim
         self.action_dim = action_dim
@@ -58,11 +59,13 @@ class TD3Agent:
 
     @staticmethod
     def _resolve_device(device_name: str) -> torch.device:
+        """根据配置和硬件条件选择实际计算设备。"""
         if device_name == "cuda" and torch.cuda.is_available():
             return torch.device("cuda")
         return torch.device("cpu")
 
     def select_action(self, state: np.ndarray, deterministic: bool = False) -> np.ndarray:
+        """根据当前策略网络输出动作。"""
         del deterministic
         state_tensor = torch.as_tensor(state, dtype=torch.float32, device=self.device).unsqueeze(0)
         self.actor.eval()
@@ -72,14 +75,15 @@ class TD3Agent:
         return np.clip(action.astype(np.float32), -1.0, 1.0)
 
     def train_step(self, replay_buffer: ReplayBuffer) -> dict[str, float] | None:
+        """执行一次 TD3 参数更新。"""
         if len(replay_buffer) < self.cfg.batch_size:
             return None
 
         self.total_it += 1
-
         state, action, reward, next_state, done = replay_buffer.sample(self.cfg.batch_size, self.device)
 
         with torch.no_grad():
+            # 为目标动作添加截断高斯噪声，实现 target policy smoothing。
             noise = torch.randn_like(action) * self.cfg.policy_noise
             noise = torch.clamp(noise, -self.cfg.noise_clip, self.cfg.noise_clip)
             next_action = self.actor_target(next_state) + noise
@@ -100,12 +104,14 @@ class TD3Agent:
         actor_updated = False
 
         if self.total_it % self.cfg.policy_delay == 0:
+            # Actor 的目标是最大化 Q1，因此优化时取负号。
             actor_loss = -self.critic.q1(state, self.actor(state)).mean()
 
             self.actor_optimizer.zero_grad()
             actor_loss.backward()
             self.actor_optimizer.step()
 
+            # 只有在 Actor 更新时，同步对目标网络做软更新。
             self._soft_update(self.actor_target, self.actor, self.cfg.tau)
             self._soft_update(self.critic_target, self.critic, self.cfg.tau)
 
@@ -120,10 +126,12 @@ class TD3Agent:
 
     @staticmethod
     def _soft_update(target_net: nn.Module, source_net: nn.Module, tau: float) -> None:
+        """按 Polyak averaging 方式更新目标网络。"""
         for target_param, source_param in zip(target_net.parameters(), source_net.parameters()):
             target_param.data.copy_(tau * source_param.data + (1.0 - tau) * target_param.data)
 
     def save(self, path: str | Path) -> None:
+        """保存网络参数、优化器状态和训练步数。"""
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         torch.save(
@@ -142,6 +150,7 @@ class TD3Agent:
         )
 
     def load(self, path: str | Path) -> None:
+        """从 checkpoint 恢复网络参数和优化器状态。"""
         checkpoint = torch.load(Path(path), map_location=self.device)
         self.total_it = int(checkpoint["total_it"])
         self.actor.load_state_dict(checkpoint["actor"])

@@ -8,6 +8,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
+    # 允许直接从项目根目录调用脚本。
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import numpy as np
@@ -18,6 +19,7 @@ from envs.ris_env import RISEnv
 
 
 def resolve_latest_run(outputs_root: str) -> Path | None:
+    """读取最新一次训练对应的实验目录。"""
     latest_run_file = Path(outputs_root) / "latest_run.txt"
     if not latest_run_file.exists():
         return None
@@ -25,18 +27,20 @@ def resolve_latest_run(outputs_root: str) -> Path | None:
 
 
 def parse_args() -> argparse.Namespace:
+    """解析评估脚本命令行参数。"""
     parser = argparse.ArgumentParser(description="RIS-TD3 评估脚本")
     parser.add_argument(
         "--checkpoint",
         type=str,
         default=None,
-        help="待加载的 checkpoint 路径；若不提供，则优先读取最新实验目录下的 best.pt",
+        help="待加载的 checkpoint 路径；若不提供，则优先读取最新实验目录中的 best.pt",
     )
     parser.add_argument("--eval-episodes", type=int, default=None, help="覆盖默认评估回合数")
     return parser.parse_args()
 
 
 def build_config(args: argparse.Namespace) -> SystemConfig:
+    """根据命令行参数构造评估配置。"""
     cfg = SystemConfig()
     if args.eval_episodes is not None:
         cfg = replace(cfg, eval_episodes=args.eval_episodes)
@@ -44,6 +48,7 @@ def build_config(args: argparse.Namespace) -> SystemConfig:
 
 
 def main() -> None:
+    """加载训练好的模型并输出评估统计结果。"""
     args = parse_args()
     cfg = build_config(args)
 
