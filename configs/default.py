@@ -25,7 +25,7 @@ class SystemConfig:
     # 有限块长通信参数
     total_cbl: float = 100.0  # 系统总可分配信道块长
     min_cbl: float = 10.0  # 单用户最小信道块长
-    target_error_prob: float = 1e-8  # 目标误块率/误包率
+    target_error_prob: float = 1e-12  # 目标误块率/误包率
 
     # Rician 信道参数
     zeta_br: float = 10.0  # BS-RIS 链路的 Rician 因子
@@ -59,7 +59,7 @@ class SystemConfig:
 
     # 通用数值与随机性参数
     seed: int = 42  # 全局随机种子
-    eps_div: float = 1e-12  # 防止除零的小常数
+    eps_div: float = 1e-30  # 防止除零的小常数
 
     # Actor 网络结构参数
     actor_hidden_dims: Tuple[int, int, int] = (800, 400, 200)  # Actor 各隐藏层宽度

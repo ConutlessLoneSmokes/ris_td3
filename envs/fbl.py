@@ -80,7 +80,7 @@ def fbl_bits(sinr: np.ndarray, cbl: np.ndarray, error_prob: float) -> np.ndarray
     c = shannon_capacity(sinr)
     v = channel_dispersion(sinr)
     # 分别对应容量主项、有限块长惩罚项以及对块长的校正项。
-    return cbl * c - qinv * np.sqrt(np.maximum(cbl * v, 0.0)) + np.log2(np.maximum(cbl, 1e-12))
+    return cbl * c - qinv * np.sqrt(np.maximum(cbl * v, 0.0))
 
 
 def reward_total_fbl(sinr: np.ndarray, cbl: np.ndarray, error_prob: float) -> float:

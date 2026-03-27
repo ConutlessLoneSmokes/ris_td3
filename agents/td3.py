@@ -98,6 +98,8 @@ class TD3Agent:
 
         self.critic_optimizer.zero_grad()
         critic_loss.backward()
+        # 核心修改 2：加入梯度裁剪，限制最大梯度范数为 1.0 或 10.0
+        torch.nn.utils.clip_grad_norm_(self.critic.parameters(), max_norm=50.0)
         self.critic_optimizer.step()
 
         actor_loss_value = 0.0
@@ -109,6 +111,8 @@ class TD3Agent:
 
             self.actor_optimizer.zero_grad()
             actor_loss.backward()
+            # 核心修改 2：加入梯度裁剪
+            torch.nn.utils.clip_grad_norm_(self.actor.parameters(), max_norm=10.0)
             self.actor_optimizer.step()
 
             # 只有在 Actor 更新时，同步对目标网络做软更新。
