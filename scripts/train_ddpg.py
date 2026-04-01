@@ -9,4 +9,4 @@ from runners.train_solver import main
 
 
 if __name__ == "__main__":
-    main(default_solver="td3")
+    main(default_solver="ddpg")

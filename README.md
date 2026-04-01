@@ -1,145 +1,157 @@
-# RIS-TD3 论文复现
+# RIS 研究框架
 
-基于论文 *Deep Reinforcement Learning for Practical Phase Shift Optimization in RIS-aided MISO URLLC Systems* 的复现工程，当前已经完成信道/环境建模、TD3 训练主链路、实验记录归档、评估脚本和基础画图脚本。
-
-## 当前实现状态
-
-- 已完成：
-  - 信道建模、有限块长 FBL 奖励、RIS 实际幅相关系、动作约束映射
-  - 单步 single-shot `RISEnv`
-  - 论文对齐版 TD3 网络、经验回放、训练与评估
-  - TensorBoard、CSV、JSON 的实验记录保存
-  - 训练后结果画图脚本
-- 当前默认对齐论文的参数：
-  - actor 学习率 `1e-4`
-  - critic 学习率 `1e-4`
-  - actor 隐层 `[800, 400, 200]`
-  - critic 结构：状态分支 `800`、动作分支 `800`、融合后 `[600, 400]`
-  - `LayerNorm = True`
-  - replay buffer `10000`
-  - batch size `64`
-  - exploration noise 方差 `0.1`
-  - target policy noise 方差 `0.1`
-  - `tau = 0.005`
-  - `policy_delay = 4`
-  - `eval_episodes = 100`
-
-## 与论文的已知差异
-
-- `gamma`：论文正文没有给出具体数值，当前保留 `0.99`。由于当前环境为单步回合，`done=True`，训练中未来回报项实际上不生效。
-- `noise_clip`：论文给出了 TD3 中的截断常数 `c`，但未报告具体数值，当前采用常见默认值 `0.5`。
-- `warmup_episodes`：论文算法描述没有单独给出随机 warmup 阶段，当前默认设为 `0`。
+该仓库已经重构为面向 **RIS-aided MISO URLLC** 的模块化研究框架，核心目标是把
+**问题定义、求解器实现、运行入口、实验产物** 解耦，便于后续持续接入 `TD3`、`DDPG`、
+随机搜索以及传统优化方法。
 
 ## 目录结构
 
 ```text
 ris_td3/
-├─ agents/
-│  ├─ networks.py
-│  ├─ replay_buffer.py
-│  └─ td3.py
-├─ configs/
-│  └─ default.py
-├─ envs/
-│  ├─ channel_model.py
-│  ├─ constraints.py
-│  ├─ fbl.py
-│  └─ ris_env.py
-├─ scripts/
-│  ├─ evaluate.py
-│  ├─ plot_results.py
-│  ├─ sanity_check.py
-│  └─ train.py
-└─ outputs/
-   └─ experiments/
-      ├─ latest_run.txt
-      └─ <run_name>/
-         ├─ config.json
-         ├─ summary.json
-         ├─ evaluation_summary.json
-         ├─ train_metrics.csv
-         ├─ eval_metrics.csv
-         ├─ tb/
-         ├─ checkpoints/
-         │  ├─ latest.pt
-         │  └─ best.pt
-         └─ plots/
-            └─ learning_curves.png
+├─ core/                       # 通用类型、日志、注册器、随机种子、IO 工具
+├─ problems/
+│  └─ ris_miso_urllc/          # 共享问题定义：配置、信道、约束、目标、评估、RL 适配器
+├─ solvers/
+│  ├─ rl/                      # RL 求解器：TD3、DDPG、网络、回放缓存
+│  ├─ baselines/               # 基线方法：random_search
+│  └─ optimization/            # 传统优化方法预留目录
+├─ runners/                    # 统一训练、评估、benchmark、绘图、sanity check
+├─ scripts/                    # 面向用户的薄脚本入口
+├─ configs/                    # 默认配置与注册入口
+└─ outputs/                    # 实验产物目录
 ```
 
-## 运行方式
+## 统一接口
 
-### 1. 冒烟测试
+问题层统一对象：
+- `ProblemConfig`
+- `ProblemInstance`
+- `Solution`
+- `Metrics`
+- `Evaluator`
+- `ScenarioSampler`
+
+求解器层统一接口：
+- `Solver.setup(problem_config)`
+- `Solver.solve(instance) -> Solution`
+- `Solver.save(path)`
+- `Solver.load(path)`
+
+RL 求解器扩展接口：
+- `bind_environment(state_dim, action_dim)`
+- `select_action(state)`
+- `update(replay_buffer)`
+
+## 输出目录规范
+
+所有实验结果统一写入：
+
+```text
+outputs/
+  <problem_name>/
+    <solver_name>/
+      <run_name>/
+        config.problem.json
+        config.solver.json
+        train_metrics.csv
+        eval_metrics.csv
+        summary.json
+        evaluation_summary.json
+        checkpoints/
+        tb/
+        plots/
+```
+
+默认问题名：`ris_miso_urllc`
+
+## 常用命令
+
+### 1. 冒烟检查
 
 ```bash
 python scripts/sanity_check.py
 ```
 
-### 2. 按论文默认参数训练
+### 2. 训练 TD3
 
 ```bash
 python scripts/train.py
 ```
 
-### 3. 小规模快速冒烟
+或显式指定：
 
 ```bash
-python scripts/train.py --train-episodes 20 --batch-size 4 --buffer-size 64 --eval-interval 10 --save-interval 10 --eval-episodes 5
+python scripts/train_td3.py
 ```
 
-### 4. 评估最新实验
+### 3. 训练 DDPG
+
+```bash
+python scripts/train_ddpg.py
+```
+
+### 4. 运行随机搜索基线
+
+```bash
+python scripts/train_random_search.py --train-episodes 200 --eval-episodes 20 --num-candidates 128
+```
+
+### 5. 评估实验结果
+
+默认评估最近一次 TD3 运行：
 
 ```bash
 python scripts/evaluate.py
 ```
 
-也可以指定模型：
+显式指定实验目录：
 
 ```bash
-python scripts/evaluate.py --checkpoint outputs/experiments/<run_name>/checkpoints/best.pt
+python scripts/evaluate.py --run-dir outputs/ris_miso_urllc/td3/<run_name>
 ```
 
-### 5. 绘制训练曲线
+### 6. 运行 benchmark
+
+```bash
+python scripts/benchmark.py --solvers td3,ddpg,random_search --eval-episodes 20
+```
+
+### 7. 绘制实验曲线
+
+默认读取最近一次 TD3 运行：
 
 ```bash
 python scripts/plot_results.py
 ```
 
-也可以指定实验目录：
+显式指定实验目录：
 
 ```bash
-python scripts/plot_results.py --run-dir outputs/experiments/<run_name>
+python scripts/plot_results.py --run-dir outputs/ris_miso_urllc/td3/<run_name>
 ```
 
-## 实验记录说明
+## 当前已接入方法
 
-每次运行 `train.py` 会在 `outputs/experiments/` 下生成一个独立实验目录，并自动写入：
+- `td3`
+  - 双 Q、目标策略平滑、延迟策略更新
+- `ddpg`
+  - 单 Q 连续控制基线
+- `random_search`
+  - 直接在可行域采样候选解并择优
 
-- `config.json`
-  - 训练配置快照和论文对齐说明
-- `train_metrics.csv`
-  - 每个 episode 的训练指标
-- `eval_metrics.csv`
-  - 周期评估指标
-- `summary.json`
-  - 本次训练的核心摘要、checkpoint 路径和日志路径
-- `tb/`
-  - TensorBoard 事件文件
-- `checkpoints/`
-  - `latest.pt` 和 `best.pt`
+## 配置约定
 
-运行 `evaluate.py` 后会在对应实验目录下补充：
+- `problems/ris_miso_urllc/config.py`
+  - 维护共享问题配置：几何位置、噪声、功率预算、RIS 参数、CBL 约束等
+- `solvers/*`
+  - 各求解器维护自己的超参数配置
+- `configs/default.py`
+  - 负责默认问题、默认求解器与内建注册
 
-- `evaluation_summary.json`
-  - 独立评估结果摘要
+## 扩展方向
 
-运行 `plot_results.py` 后会在对应实验目录下补充：
-
-- `plots/learning_curves.png`
-  - 训练与评估曲线图
-
-## 后续建议
-
-- 把论文图 3、图 4、图 7 的实验横轴与当前脚本中的 episode 数逐个对齐，补场景扫描脚本。
-- 增加 `beta_min`、`p_total_watt`、`N` 的批量实验入口，直接产出论文对比曲线。
-- 若后续希望进一步压论文结构，可把 deterministic policy 与 Gaussian policy 分支显式拆成两个训练配置。
+后续新增方法时，优先遵循以下边界：
+- 不修改问题层公式，新增求解器放到 `solvers/`
+- 统一通过 `runners/` 输出日志、checkpoint 和图像
+- RL 方法使用 `problems/ris_miso_urllc/rl_env.py`
+- 非 RL 方法直接走 `ProblemInstance -> Solver -> Evaluator`
